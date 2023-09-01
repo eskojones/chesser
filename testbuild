@@ -1,0 +1,32 @@
+#!/bin/sh
+CC_BIN='cc'
+CC_FLAGS='-Wno-incompatible-pointer-types-discards-qualifiers'
+INPUT_FILES='main.c chess.c font.c font_5x5.c font_7x7.c list.c surface.c'
+OUTPUT_NAME='build/chesser'
+LIBRARIES='SDL2 SDL2main'
+LIB_PATHS='/opt/homebrew/Cellar/sdl2/2.28.2/lib'
+INC_PATHS='/opt/homebrew/Cellar/sdl2/2.28.2/include'
+
+
+
+CMDLINE="$CC_BIN"
+
+for F in $LIBRARIES; do
+  CMDLINE="$CMDLINE -l$F"
+done
+
+for P in $LIB_PATHS; do
+  CMDLINE="$CMDLINE -L$P"
+done
+
+for I in $INC_PATHS; do
+  CMDLINE="$CMDLINE -I$I"
+done
+
+CMDLINE="$CMDLINE $CC_FLAGS -o $OUTPUT_NAME"
+
+for S in $INPUT_FILES; do
+  CMDLINE="$CMDLINE $S"
+done
+
+$CMDLINE
