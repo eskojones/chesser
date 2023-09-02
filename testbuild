@@ -1,7 +1,7 @@
 #!/bin/sh
 CC_BIN='cc'
 CC_FLAGS='-Wno-incompatible-pointer-types-discards-qualifiers'
-INPUT_FILES='main.c chess.c font.c font_5x5.c font_7x7.c list.c surface.c'
+INPUT_FILES='main.c chess.c font.c font_5x5.c font_7x7.c font_chess.c list.c surface.c'
 OUTPUT_NAME='build/chesser'
 LIBRARIES='SDL2 SDL2main'
 LIB_PATHS='/opt/homebrew/Cellar/sdl2/2.28.2/lib'

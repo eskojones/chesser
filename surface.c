@@ -71,7 +71,8 @@ void surface_line(Surface *surface, uint16_t sx, uint16_t sy, uint16_t dx, uint1
     int16_t error = diffx + diffy;
     uint16_t cx = sx, cy = sy;
 
-    while (1) {
+    int count = 0;
+    while (count++ < surface->width * 2) {
         if (cx >= 0 && cx < 160 
          && cy >= 0 && cy < 128) {
             surface_putpixel(surface, cx, cy, colour);

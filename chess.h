@@ -4,7 +4,7 @@
 #define WHITE 0
 #define BLACK 1
 
-#define INVALID 0
+#define INVALID '?'
 #define PAWN 'p'
 #define KNIGHT 'n'
 #define BISHOP 'b'
@@ -14,7 +14,7 @@
 
 
 typedef struct {
-    int type, colour, column, row, moves;
+    int type, colour, column, row, moves, counter;
 } ChessPiece;
 
 typedef struct {

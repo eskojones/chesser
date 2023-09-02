@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "font_chess.h"
 #include "font.h"
 #include "surface.h"
 #include "chess.h"
@@ -50,7 +51,7 @@ void convert_surface (SDL_Surface *dst, Surface *src) {
 }
 
 typedef struct {
-    Font *font_small, *font_medium;
+    Font *font_small, *font_medium, *font_chess;
     SDL_Window *window;
     SDL_Renderer *renderer;
     Surface *original;
@@ -63,6 +64,7 @@ State *state;
 void sdl_init (State *state, char *title, int width, int height, float scale) {
     state->font_small = (Font *)malloc(sizeof(Font));
     state->font_medium = (Font *)malloc(sizeof(Font));
+    state->font_chess = (Font *)malloc(sizeof(Font));
     //setup fonts for font_print()
     state->font_small->data = font_5x5;
     state->font_small->width = 5;
@@ -76,6 +78,12 @@ void sdl_init (State *state, char *title, int width, int height, float scale) {
     state->font_medium->spacing = 1;
     state->font_medium->ascii_start = 32;
     state->font_medium->ascii_end = 126;
+    state->font_chess->data = font_chess;
+    state->font_chess->width = 7;
+    state->font_chess->height = 7;
+    state->font_chess->spacing = 1;
+    state->font_chess->ascii_start = 32;
+    state->font_chess->ascii_end = 126;
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "could not initialize sdl2: %s\n", SDL_GetError());
@@ -104,6 +112,41 @@ void sdl_init (State *state, char *title, int width, int height, float scale) {
 }
 
 
+void draw_chess_board (Surface *surface, uint16_t white, uint16_t black, bool flip) {
+    Rect dstRect = {
+        0,
+        0,
+        surface->width / 8,
+        surface->height / 8
+    };
+    Rect srcRect = {
+        0,
+        0,
+        4,
+        4
+    };
+    Surface *whiteFill = surface_create(4, 4);
+    Surface *blackFill = surface_create(4, 4);
+    surface_fill(whiteFill, white);
+    surface_fill(blackFill, black);
+    Surface *current = whiteFill;
+    for (int y = 0 ; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+            surface_scaleblit(surface, current, &dstRect, &srcRect);
+            dstRect.x += dstRect.w;
+            if (current == whiteFill) current = blackFill;
+            else if (current == blackFill) current = whiteFill;
+        }
+        dstRect.y += dstRect.h;
+        dstRect.x = 0;
+            if (current == whiteFill) current = blackFill;
+            else if (current == blackFill) current = whiteFill;
+    }
+    surface_destroy(whiteFill);
+    surface_destroy(blackFill);
+}
+
+
 int main (int argc, char **argv) {
     srand(1337);
     state = (State *)malloc(sizeof(State));
@@ -113,8 +156,10 @@ int main (int argc, char **argv) {
 
     ChessGame *game = chess_newgame();
 
+    int last_sx, last_sy, last_dx, last_dy;
 
-    int running = 1, lastFrame = 0, frame = 0, fps;
+
+    int running = 1, lastFrame = 0, frame = 0, fps, idx = 0;
     char fpsStr[10];
     struct timeval tv;
     time_t lastTime = gettimeofday(&tv, NULL);
@@ -128,9 +173,8 @@ int main (int argc, char **argv) {
                 case SDL_WINDOWEVENT_CLOSE: running = 0; break;
             }
         }
-        surface_fill(state->original, 0);
-
-
+        //surface_fill(state->original, 0);
+        draw_chess_board(state->original, GRAY, BROWN, false);
 
 
         for (int i = 0; i < 64; i++) {
@@ -142,7 +186,7 @@ int main (int argc, char **argv) {
             } else {
                 //printf("%c", (game->board[i]->colour == WHITE ? game->board[i]->type - 32 : game->board[i]->type));
                 char pieceStr[] = { game->board[i]->type, 0 };
-                font_print(state->original, state->font_medium, pieceStr, tx * 8, ty * 8, game->board[i]->colour == WHITE ? 0xffff : GRAY);
+                font_print(state->original, state->font_chess, pieceStr, tx * 8,  ty * 8, game->board[i]->colour == WHITE ? 0xffff : 0x0000);
             }
             //if (i % 8 == 7) printf("\n");
         }
@@ -156,22 +200,51 @@ int main (int argc, char **argv) {
             sprintf(fpsStr, "%d FPS", fps);
         }
 
-        //int idx;
-        ChessPiece *p = &game->pieces[rand() % 32];
-        // while (p == NULL) {
-        //     idx = rand() % 32;
-        //     if (game->pieces[idx].type != INVALID && game->pieces[idx].colour == game->moves % 2) {
-        //         p = &game->pieces[idx];
-        //         break;
-        //     }
-            
-        // }
-        // printf("%c %d\n", p->type, idx);
-        int sx = p->column, sy = p->row, dx = p->column + (-2 + rand() % 4), dy = p->row + (-2 + rand() % 4);
-        if (chess_turn(game, sx, sy, dx, dy)) {
-            printf("%d\n", game->moves);
+
+        int c = 0;
+        ChessPiece *p = NULL;
+        while (p == NULL && c < 32) {
+            int p_idx = ((idx++) * 223) % 32;
+            p = &game->pieces[p_idx];
+            c++;
+        }
+
+        if (c == 32) {
+            chess_free(game);
+            game = chess_newgame();
         }
         
+        int board_idx = ((p->counter++) * 2531) % 64;
+        int sx = p->column, 
+            sy = p->row, 
+            dx = floor((float)board_idx / 8.0f),
+            dy = board_idx % 8;
+        if (chess_turn(game, sx, sy, dx, dy)) {
+            printf("%c %d\n", p->type, game->moves);
+            last_sx = sx;
+            last_sy = sy;
+            last_dx = dx;
+            last_dy = dy;
+            
+            //SDL_Delay(50);
+        } else {
+            surface_line(
+                state->original,
+                sx * 8 + 4, sy * 8 + 4, 
+                dx * 8 + 4, dy * 8 + 4,  
+                RED
+            );
+        }
+        
+        if (game->moves) {
+            surface_line(
+                state->original,
+                last_sx * 8 + 4, last_sy * 8 + 4, 
+                last_dx * 8 + 4, last_dy * 8 + 4,  
+                GREEN
+            );
+        }
+
         //font_print(state->original, state->font_small, fpsStr, 1, 1, GREEN);
         convert_surface(state->tempSurface, state->original);
         SDL_BlitScaled(state->tempSurface, NULL, state->screen, NULL);
