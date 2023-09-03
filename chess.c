@@ -74,7 +74,6 @@ int chess_test_position (
     int piece_colour, int piece_type, bool first_move, 
     int piece_column, int piece_row, int column, int row
 ) {
-    if (piece_type == INVALID) return CH_MOVE_INVALID;
     if (piece_column < 0 || piece_column > 7 || piece_row < 0 || piece_row > 7) return CH_MOVE_INVALID;
     if (column < 0 || column > 7 || row < 0 || row > 7) return CH_MOVE_INVALID;
     ChessPiece *target = game->board[row * 8 + column];
@@ -174,7 +173,7 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     ChessPiece *p = game->board[sidx];
     //no piece at the source tile
     if (p == NULL) return NULL;
-    if (p->type == INVALID) return NULL;
+    if (p->status == TAKEN) return NULL;
 
     //not this colour's turn
     if ((p->colour == WHITE && game->moves % 2 == 1)
@@ -245,7 +244,7 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
         result->target_type = game->board[didx]->type;
         result->target_colour = game->board[didx]->colour;
         result->took = true;
-        game->board[didx]->type = INVALID;
+        game->board[didx]->status = TAKEN;
         game->board[didx]->column = -1;
         game->board[didx]->row = -1;
     }

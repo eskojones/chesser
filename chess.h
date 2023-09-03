@@ -4,6 +4,9 @@
 #define WHITE 0
 #define BLACK 1
 
+#define NORMAL 0
+#define TAKEN 1
+
 #define INVALID 0
 #define PAWN 1
 #define KNIGHT 2
@@ -25,7 +28,7 @@ extern const char chess_board_rows[8];      //12345678
 
 
 typedef struct {
-    int type, colour, column, row, moves, counter;
+    int type, colour, column, row, moves, counter, status;
 } ChessPiece;
 
 typedef struct {
