@@ -1,6 +1,9 @@
 #ifndef _CHESS_H_
 #define _CHESS_H_
 
+#include <stdlib.h>
+#include <stdbool.h>
+
 #define WHITE 0
 #define BLACK 1
 

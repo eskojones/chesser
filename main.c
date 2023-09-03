@@ -13,8 +13,6 @@
 #include "surface.h"
 #include "chess.h"
 
-//#define WHITE   0xFFFF
-//#define BLACK   0x0000
 #define BLUE    0x001F
 #define BRED    0xF81F
 #define GRED    0xFFE0
@@ -27,8 +25,6 @@
 #define BROWN   0xBC40
 #define BRRED   0xFC07
 #define GRAY    0x8430
-
-
 
 
 typedef struct {
@@ -47,9 +43,7 @@ typedef struct {
     SDL_Scancode keycode;
 } State;
 
-
-
-
+State *state;
 
 
 void SDL_SetPixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
@@ -75,9 +69,6 @@ void convert_surface (SDL_Surface *dst, Surface *src) {
     }
     SDL_UnlockSurface(dst);
 }
-
-
-State *state;
 
 
 void init (State *state, char *title, int width, int height, float scale) {

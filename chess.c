@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+
 #include "chess.h"
-#include "list.h"
 
 
 const char chess_piece_names[7][8] = {
