@@ -1,6 +1,10 @@
 .DS_Store/
 .cache/
 .vscode/
+.config/
+config/
+cfg/
+conf/
 build/
 *.o
 *.a
