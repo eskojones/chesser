@@ -7,6 +7,19 @@
 #include "list.h"
 
 
+const char chess_piece_names[7][8] = {
+    "Invalid",
+    "Pawn",
+    "Knight",
+    "Bishop",
+    "Rook",
+    "Queen",
+    "King"
+};
+const char chess_piece_chars[8] = "?PNBRQK";
+const char chess_board_columns[8] = "abcdefgh";
+const char chess_board_rows[8] = "87654321";
+
 ChessGame *chess_newgame () {
     ChessGame *game = (ChessGame *)malloc(sizeof(ChessGame));
     memset(game, 0, sizeof(ChessGame));
@@ -61,9 +74,9 @@ int chess_test_position (
     int piece_colour, int piece_type, bool first_move, 
     int piece_column, int piece_row, int column, int row
 ) {
-    if (piece_type == INVALID) return 0;
-    if (piece_column < 0 || piece_column > 7 || piece_row < 0 || piece_row > 7) return 0;
-    if (column < 0 || column > 7 || row < 0 || row > 7) return 0;
+    if (piece_type == INVALID) return CH_MOVE_INVALID;
+    if (piece_column < 0 || piece_column > 7 || piece_row < 0 || piece_row > 7) return CH_MOVE_INVALID;
+    if (column < 0 || column > 7 || row < 0 || row > 7) return CH_MOVE_INVALID;
     ChessPiece *target = game->board[row * 8 + column];
     //there's a piece at the destination
     bool target_exists = target != NULL;
@@ -79,29 +92,17 @@ int chess_test_position (
     int xDiff = abs(xDir);
     int yDiff = abs(yDir);
     //must be moving somewhere
-    if (xDiff == 0 && yDiff == 0) return 0;
+    if (xDiff == 0 && yDiff == 0) return CH_MOVE_INVALID;
 
     //piece specific conditions
     if (piece_type == PAWN) {
-        // if (piece_colour == WHITE) {
-        //     if (yDir >= 0) return 0; //never move backwards
-        //     if (yDir < -2) return 0; //never move more than 2
-        //     //only allow moving 2 tiles when first move and not taking
-        //     if (yDir == -2 && xDir == 0 && !first_move) return 0; 
-        // }
-        // if (piece_colour == BLACK) {
-        //     if (yDir <= 0) return 0; //never move backwards
-        //     if (yDir > 2) return 0; //never move more than 2
-        //     //only allow moving 2 tiles when first move and not taking
-        //     if (yDir == 2 && xDir == 0 && !first_move) return 0; 
-        // }
-        // //never move more than one column across
-        // if (xDiff > 1) return 0;
-        // //only move sideways when taking
-        // if (target_friend && !target_enemy && xDiff != 0) return 0;
-        // if (xDiff == 0 && yDiff == 1 && target_exists) return 0; 
-        if (xDiff != 0) return false;
-        if (yDiff > 2 && !first_move) return false;
+        if (piece_colour == WHITE && yDir >= 0) return CH_MOVE_INVALID;
+        if (piece_colour == BLACK && yDir <= 0) return CH_MOVE_INVALID;
+        if (!target_enemy && xDiff != 0) return CH_MOVE_INVALID;
+        if (first_move && xDiff != 0) return CH_MOVE_INVALID;
+        if (first_move && yDiff > 2) return CH_MOVE_INVALID;
+        if (!first_move && yDiff > 1) return CH_MOVE_INVALID;
+        if (xDiff == 0 && target_exists) return CH_MOVE_INVALID;
 
     } else if (piece_type == KNIGHT) {
         int valids[][2] = {
@@ -121,116 +122,136 @@ int chess_test_position (
                 break;
             }
         }
-        if (!valid) return 0;
+        if (!valid) return CH_MOVE_INVALID;
 
     } else if (piece_type == BISHOP) {
         //must be moving on both axis'
-        if (xDiff == 0 || yDiff == 0) return 0;
+        if (xDiff == 0 || yDiff == 0) return CH_MOVE_INVALID;
         //must move diagonal
-        if (xDiff != yDiff) return 0;
+        if (xDiff != yDiff) return CH_MOVE_INVALID;
 
     } else if (piece_type == ROOK) {
         //cannot move diagonal
-        if (xDiff != 0 && yDiff != 0) return 0;
+        if (xDiff != 0 && yDiff != 0) return CH_MOVE_INVALID;
 
     } else if (piece_type == QUEEN) {
         //allow anything except non-diagonal/cardinal moves
         if (xDiff != 0 && yDiff != 0) {
-            if (xDiff != yDiff) return 0;
+            if (xDiff != yDiff) return CH_MOVE_INVALID;
         }
     } else if (piece_type == KING) {
         //ez        
-        if (xDiff > 1) return 0;
-        if (yDiff > 1) return 0;
+        if (xDiff > 1) return CH_MOVE_INVALID;
+        if (yDiff > 1) return CH_MOVE_INVALID;
     }
 
     //there's a piece at our destination already
     if (target_exists) {
         //take the piece
-        if (target_enemy) return 2;
+        if (target_enemy) {
+            return CH_MOVE_TAKE;
+        }
         //target is friendly, cant move here
-        else if (target_friend) return 0;
+        else if (target_friend) return CH_MOVE_BLOCKED;
     }
 
-    return 1;
+    return CH_MOVE_SUCCESS;
 }
 
 float clamp (float v, float min, float max) {
     return v < min ? min : (v > max ? max : v);
 }
 
-bool chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
+
+
+ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     //destination tile is out of bounds
-    if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return false;
-    if (dx < 0 || dx > 7 || dy < 0 || dy > 7) return false;
+    if (sx < 0 || sx > 7 || sy < 0 || sy > 7) return NULL;
+    if (dx < 0 || dx > 7 || dy < 0 || dy > 7) return NULL;
     int sidx = sy * 8 + sx;
     int didx = dy * 8 + dx;
-    if (sidx == didx) return false;
+    if (sidx == didx) return NULL;
     ChessPiece *p = game->board[sidx];
     //no piece at the source tile
-    if (p == NULL) return false;
-    if (p->type == INVALID) return false;
+    if (p == NULL) return NULL;
+    if (p->type == INVALID) return NULL;
 
     //not this colour's turn
     if ((p->colour == WHITE && game->moves % 2 == 1)
      || (p->colour == BLACK && game->moves % 2 == 0)) {
-        return false;
+        return NULL;
     }
 
-    int result = 0;
+    ChessTurnResult *result = (ChessTurnResult *)malloc(sizeof(ChessTurnResult));
+    memset(result, 0, sizeof(ChessTurnResult));
+    result->piece_colour = p->colour;
+    result->piece_type = p->type;
+    result->piece_column = p->column;
+    result->piece_row = p->row;
+    result->target_column = dx;
+    result->target_row = dy;
+
     if (p->type == KNIGHT) {
-        return false;
-        result = chess_test_position(
+        result->code = chess_test_position(
             game, 
             p->colour, p->type, p->moves == 0, 
             p->column, p->row, 
             dx, dy
         );
+        if (result->code < CH_MOVE_SUCCESS) {
+            free(result);
+            return NULL;
+        }
 
     } else {
         int xDiff = abs(dx - p->column);
         int yDiff = abs(dy - p->row);
         int xDir = clamp(dx - p->column, -1, 1);
         int yDir = clamp(dy - p->row, -1, 1);
-        if (p->type == KING) {
-            if (xDiff > 1 || yDiff > 1) return false;
-        }
-        if (p->type == PAWN) {
-            if (yDiff > 1 && p->moves > 0) return false;
-        }
         int start_column = p->column;
         int start_row = p->row;
         int current_column = start_column;
         int current_row = start_row;
         while (current_column != dx || current_row != dy) {
-            result = chess_test_position(
+            result->code = chess_test_position(
                 game, 
                 p->colour, p->type, p->moves == 0, 
-                current_column, current_row, 
+                start_column, start_row, 
                 current_column + xDir, current_row + yDir
             );
             current_column += xDir;
             current_row += yDir;
-            if (result == 0) return false;
             //enemy piece is in the way
-            if (result == 2) {
-                if (current_column != dx || current_row != dy) return false;
+            if (result->code == CH_MOVE_BLOCKED || result->code == CH_MOVE_TAKE) {
+                if (current_column != dx || current_row != dy) {
+                    free(result);
+                    return NULL;
+                }
+            }
+            if (result->code < CH_MOVE_SUCCESS) {
+                free(result);
+                return NULL;
             }
         }
     }
 
-    if (result == 2) {
+    if (result->code >= CH_MOVE_TAKE) {
         //take the piece at dx,dy
         if (game->board[didx] == NULL) {
-            printf("??\n");
-            return false;
+            //printf("... but there's no piece to take ???\n");
+            free(result);
+            return NULL;
         }
+        result->target_type = game->board[didx]->type;
+        result->target_colour = game->board[didx]->colour;
+        result->took = true;
         game->board[didx]->type = INVALID;
         game->board[didx]->column = -1;
         game->board[didx]->row = -1;
     }
 
     //move the piece
+    result->first = p->moves == 0;
     p->column = dx;
     p->row = dy;
     game->board[sidx] = NULL;
@@ -238,5 +259,5 @@ bool chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     game->moves++;
     p->moves++;
 
-    return true;
+    return result;
 }

@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "SDL2/SDL_timer.h"
 #include "font_chess.h"
 #include "font.h"
 #include "surface.h"
@@ -79,11 +80,11 @@ void sdl_init (State *state, char *title, int width, int height, float scale) {
     state->font_medium->ascii_start = 32;
     state->font_medium->ascii_end = 126;
     state->font_chess->data = font_chess;
-    state->font_chess->width = 7;
-    state->font_chess->height = 7;
+    state->font_chess->width = 10;
+    state->font_chess->height = 10;
     state->font_chess->spacing = 1;
-    state->font_chess->ascii_start = 32;
-    state->font_chess->ascii_end = 126;
+    state->font_chess->ascii_start = 65;
+    state->font_chess->ascii_end = 91;
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "could not initialize sdl2: %s\n", SDL_GetError());
@@ -112,12 +113,12 @@ void sdl_init (State *state, char *title, int width, int height, float scale) {
 }
 
 
-void draw_chess_board (Surface *surface, uint16_t white, uint16_t black, bool flip) {
+void draw_chess_board (Surface *surface, int x, int y, int w, int h, uint16_t white, uint16_t black) {
     Rect dstRect = {
-        0,
-        0,
-        surface->width / 8,
-        surface->height / 8
+        x,
+        y,
+        w / 8,
+        h / 8
     };
     Rect srcRect = {
         0,
@@ -150,17 +151,15 @@ void draw_chess_board (Surface *surface, uint16_t white, uint16_t black, bool fl
 int main (int argc, char **argv) {
     srand(1337);
     state = (State *)malloc(sizeof(State));
-    sdl_init(state, "test", 8 * 8, 8 * 8, 16);
-
-
+    sdl_init(state, "Chesser", 12 * 8 + 80, 12 * 8 + 10, 6);
 
     ChessGame *game = chess_newgame();
 
     int last_sx, last_sy, last_dx, last_dy;
 
 
-    int running = 1, lastFrame = 0, frame = 0, fps, idx = 0;
-    char fpsStr[10];
+    int running = 1, lastFrame = 0, frame = 0, fps, idx = 0, game_num = 1;
+    char fpsStr[10], status_line[30] = "";
     struct timeval tv;
     time_t lastTime = gettimeofday(&tv, NULL);
     while (running) {
@@ -168,29 +167,24 @@ int main (int argc, char **argv) {
         while(SDL_PollEvent(&ev)) {
             switch (ev.type) {
                 case SDL_QUIT:              running = 0; break;
-                //case SDL_KEYDOWN:           running = 0; break;
+                case SDL_KEYDOWN:           running = 0; break;
                 //case SDL_MOUSEBUTTONDOWN:   running = 0; break;
                 case SDL_WINDOWEVENT_CLOSE: running = 0; break;
             }
         }
-        //surface_fill(state->original, 0);
-        draw_chess_board(state->original, GRAY, BROWN, false);
+
+        surface_fill(state->original, 0x0000);
+        draw_chess_board(state->original, 0, 0, 12*8, 12*8, GRAY, BROWN);
 
 
         for (int i = 0; i < 64; i++) {
             int tx = i % 8;
             int ty = floor((float)i / 8);
-            if (game->board[i] == NULL) {
-                //printf("#");
-                //font_print(state->original, state->font_medium, "#", tx * 8, ty * 8, tx % 2 == 0 ? (ty % 2 == 0 ? 0xffff : 0x0000) : (ty % 2 == 0 ? 0x0000 : 0xffff));
-            } else {
-                //printf("%c", (game->board[i]->colour == WHITE ? game->board[i]->type - 32 : game->board[i]->type));
-                char pieceStr[] = { game->board[i]->type, 0 };
-                font_print(state->original, state->font_chess, pieceStr, tx * 8,  ty * 8, game->board[i]->colour == WHITE ? 0xffff : 0x0000);
+            if (game->board[i] != NULL) {
+                char pieceStr[] = { chess_piece_chars[game->board[i]->type], 0 };
+                font_print(state->original, state->font_chess, pieceStr, tx * 12 + 1,  ty * 12 + 1, game->board[i]->colour == WHITE ? 0xffff : 0x0000);
             }
-            //if (i % 8 == 7) printf("\n");
         }
-
 
         gettimeofday(&tv, NULL);
         if (tv.tv_sec != lastTime) {
@@ -200,56 +194,80 @@ int main (int argc, char **argv) {
             sprintf(fpsStr, "%d FPS", fps);
         }
 
+        bool didMove = false;
+        while (!didMove) {
+            int c = 0, p_idx;
+            ChessPiece *p = NULL;
+            while (p == NULL && c < 32) {
+                p_idx = ((idx++) * 2531) % 32;
+                p = &game->pieces[p_idx];
+                if (p->type == INVALID) p = NULL;
+                c++;
+            }
 
-        int c = 0;
-        ChessPiece *p = NULL;
-        while (p == NULL && c < 32) {
-            int p_idx = ((idx++) * 223) % 32;
-            p = &game->pieces[p_idx];
-            c++;
+            if (c == 32) {
+                printf("No piece available\n");
+                return 0;
+            }
+
+            int board_idx = rand() % 64;//((p->counter++ + game->moves + lastFrame) * 2531) % 64;
+            int sx = p->column, 
+                sy = p->row, 
+                dx = floor((float)board_idx / 8.0f),
+                dy = board_idx % 8;
+            ChessTurnResult *result = chess_turn(game, sx, sy, dx, dy);
+            if (result != NULL && result->code >= CH_MOVE_SUCCESS) {
+                if (result->code == CH_MOVE_TAKE) {
+                    snprintf(status_line, 25, "%d: %c -> %c (%c%c)", 
+                        game->moves, 
+                        chess_piece_chars[result->piece_type],
+                        chess_piece_chars[result->target_type],
+                        chess_board_columns[dx],
+                        chess_board_rows[dy]
+                    );
+                    if (result->target_type == KING) {
+                        //game over
+                        chess_free(game);
+                        game = chess_newgame();
+                        SDL_Delay(1000);
+                    }
+                }
+                last_sx = sx;
+                last_sy = sy;
+                last_dx = dx;
+                last_dy = dy;
+
+                didMove = true;
+                
+                SDL_Delay(10);
+            // } else {
+            //     surface_line(
+            //         state->original,
+            //         sx * 12 + 6, sy * 12 + 6, 
+            //         dx * 12 + 6, dy * 12 + 6,  
+            //         RED
+            //     );
+            }
+            if (didMove) free(result);
         }
 
-        if (c == 32) {
-            chess_free(game);
-            game = chess_newgame();
-        }
-        
-        int board_idx = ((p->counter++) * 2531) % 64;
-        int sx = p->column, 
-            sy = p->row, 
-            dx = floor((float)board_idx / 8.0f),
-            dy = board_idx % 8;
-        if (chess_turn(game, sx, sy, dx, dy)) {
-            printf("%c %d\n", p->type, game->moves);
-            last_sx = sx;
-            last_sy = sy;
-            last_dx = dx;
-            last_dy = dy;
-            
-            //SDL_Delay(50);
-        } else {
-            surface_line(
-                state->original,
-                sx * 8 + 4, sy * 8 + 4, 
-                dx * 8 + 4, dy * 8 + 4,  
-                RED
-            );
-        }
+
         
         if (game->moves) {
             surface_line(
                 state->original,
-                last_sx * 8 + 4, last_sy * 8 + 4, 
-                last_dx * 8 + 4, last_dy * 8 + 4,  
+                last_sx * 12 + 6, last_sy * 12 + 6, 
+                last_dx * 12 + 6, last_dy * 12 + 6,  
                 GREEN
             );
         }
 
         //font_print(state->original, state->font_small, fpsStr, 1, 1, GREEN);
+        font_print(state->original, state->font_medium, status_line, 1, state->original->height - 8, GREEN);
         convert_surface(state->tempSurface, state->original);
         SDL_BlitScaled(state->tempSurface, NULL, state->screen, NULL);
         SDL_UpdateWindowSurface(state->window);
-        SDL_Delay(1);
+        SDL_Delay(100);
         lastFrame++;
     }
 
