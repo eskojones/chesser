@@ -1,3 +1,5 @@
+#include <SDL_events.h>
+#include <SDL_mouse.h>
 #include <stdio.h>
 #include <string.h>
 #include <SDL2/SDL.h>
@@ -41,6 +43,11 @@ typedef struct {
     int sx,sy,dx,dy,index;
     bool keydown;
     SDL_Scancode keycode;
+    bool mousebuttondown;
+    bool mousebuttonleft;
+    bool mousebuttonmiddle;
+    bool mousebuttonright;
+    int mouse_x, mouse_y;
 } State;
 
 State *state;
@@ -105,7 +112,7 @@ void init (State *state, char *title, int width, int height, float scale) {
         title,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         (int)(width * scale), (int)(height * scale),
-        SDL_WINDOW_SHOWN|SDL_WINDOW_MOUSE_FOCUS
+        SDL_WINDOW_SHOWN|SDL_WINDOW_MOUSE_FOCUS|SDL_WINDOW_MOUSE_GRABBED|SDL_WINDOW_MOUSE_CAPTURE
     );
     if (state->window == NULL) {
         fprintf(stderr, "could not create window: %s\n", SDL_GetError());
@@ -118,6 +125,8 @@ void init (State *state, char *title, int width, int height, float scale) {
     state->tempSurface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
     //the sdl screen surface
     state->screen = SDL_GetWindowSurface(state->window);
+
+    SDL_ShowCursor(0);
     return;
 }
 
@@ -151,12 +160,31 @@ void input (State *state, float delta) {
         switch (ev.type) {
             case SDL_QUIT:              state->running = false; break;
             case SDL_KEYDOWN:           
+                if (ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+                    state->running = false;
+                }
                 state->keydown = true; 
                 state->keycode = ev.key.keysym.scancode;
+                break;
+            case SDL_KEYUP:
+                state->keydown = false;
+                break;
+            case SDL_MOUSEBUTTONDOWN:
+                state->mousebuttondown = true;
+                state->mouse_x = ev.button.x;
+                state->mouse_y = ev.button.y;
+                break;
+            case SDL_MOUSEBUTTONUP:
+                state->mousebuttondown = false;
                 break;
             case SDL_WINDOWEVENT_CLOSE: state->running = false; break;
         }
     }
+
+    uint32_t buttons = SDL_GetMouseState(&state->mouse_x, &state->mouse_y);
+    state->mousebuttonleft = buttons & SDL_BUTTON(1);
+    state->mousebuttonmiddle = buttons & SDL_BUTTON(2);
+    state->mousebuttonright = buttons & SDL_BUTTON(3);
 }
 
 
@@ -261,6 +289,17 @@ void render (State *state, float delta) {
         1, state->original->height - 8, 
         GREEN
     );
+
+    int mx = floor((float)state->mouse_x / 6.0f);
+    int my = floor((float)state->mouse_y / 6.0f);
+    surface_circle(state->original, mx, my, 1, GREEN);
+    // surface_line(
+    //     state->original,
+    //     (int)floor((float)state->mouse_x / 6.0f), (int)floor((float)state->mouse_y / 6.0f), 
+    //     (int)floor((float)state->mouse_x / 6.0f)+1, (int)floor((float)state->mouse_y / 6.0f)+1,  
+    //     GREEN
+    // );
+
     convert_surface(state->tempSurface, state->original);
     SDL_BlitScaled(state->tempSurface, NULL, state->screen, NULL);
     SDL_UpdateWindowSurface(state->window);
@@ -285,10 +324,11 @@ int main (int argc, char **argv) {
         gettimeofday(&tv, NULL);
         input(state, 0);
 
-        if (tv.tv_usec - lastUpdate >= 33.3333 * 1000) {
-            if (state->keydown) {
+        if (tv.tv_usec - lastUpdate >= 10 * 1000) {
+            if ((state->mousebuttondown && state->mousebuttonleft) || state->keydown) {
                 update(state, tv.tv_usec - lastUpdate);
                 state->keydown = false;
+                state->mousebuttondown = false;
             }
             render(state, tv.tv_usec - lastUpdate);
             lastUpdate = tv.tv_usec;
