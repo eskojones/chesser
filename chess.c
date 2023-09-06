@@ -97,11 +97,11 @@ int chess_test_position (
     if (piece_type == PAWN) {
         if (piece_colour == WHITE && yDir >= 0) return CH_MOVE_INVALID;
         if (piece_colour == BLACK && yDir <= 0) return CH_MOVE_INVALID;
-        if (!target_enemy && xDiff != 0) return CH_MOVE_INVALID;
         if (first_move && xDiff != 0) return CH_MOVE_INVALID;
         if (first_move && yDiff > 2) return CH_MOVE_INVALID;
         if (!first_move && yDiff > 1) return CH_MOVE_INVALID;
         if (xDiff == 0 && target_exists) return CH_MOVE_INVALID;
+        if (xDiff != 0 && !target_exists) return CH_MOVE_INVALID;
 
     } else if (piece_type == KNIGHT) {
         int valids[][2] = {
@@ -205,8 +205,8 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     } else {
         int xDiff = abs(dx - p->column);
         int yDiff = abs(dy - p->row);
-        int xDir = clamp(dx - p->column, -1, 1);
-        int yDir = clamp(dy - p->row, -1, 1);
+        int xDir = (int)clamp((float)dx - (float)p->column, -1, 1);
+        int yDir = (int)clamp((float)dy - (float)p->row, -1, 1);
         int start_column = p->column;
         int start_row = p->row;
         int current_column = start_column;
