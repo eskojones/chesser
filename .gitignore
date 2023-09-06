@@ -11,4 +11,3 @@ build/
 *.bin
 *.exe
 *.meta
-.cache/clangd/index
