@@ -24,7 +24,7 @@ extern const char chess_board_columns[8];   //abcdefgh
 extern const char chess_board_rows[8];      //12345678
 
 
-#define CH_MOVE_INVALID       -1
+#define CH_MOVE_INVALID       (-1)
 #define CH_MOVE_BLOCKED        0
 #define CH_MOVE_SUCCESS      200
 #define CH_MOVE_TAKE         201

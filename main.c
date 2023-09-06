@@ -50,7 +50,6 @@ typedef struct {
     int mouse_x, mouse_y;
 } State;
 
-State *state;
 
 
 void SDL_SetPixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
@@ -64,7 +63,7 @@ void SDL_SetPixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
 
 void convert_surface (SDL_Surface *dst, Surface *src) {
     SDL_LockSurface(dst);
-    for (int y = 0, i = 0; y < src->height; y++) {
+    for (int y = 0; y < src->height; y++) {
         for (int x = 0; x < src->width; x++) {
             uint16_t p = surface_getpixel(src, x, y);
             p = ((p << 8) & 0xff00) | (p >> 8);
@@ -111,7 +110,7 @@ void init (State *state, char *title, int width, int height, float scale) {
     state->window = SDL_CreateWindow(
         title,
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        (int)(width * scale), (int)(height * scale),
+        (int)((float)width * scale), (int)((float)height * scale),
         SDL_WINDOW_SHOWN|SDL_WINDOW_MOUSE_FOCUS|SDL_WINDOW_MOUSE_GRABBED|SDL_WINDOW_MOUSE_CAPTURE
     );
     if (state->window == NULL) {
@@ -127,11 +126,10 @@ void init (State *state, char *title, int width, int height, float scale) {
     state->screen = SDL_GetWindowSurface(state->window);
 
     SDL_ShowCursor(0);
-    return;
 }
 
 
-void draw_chess_board (Surface *surface, int x, int y, int w, int h, uint16_t white, uint16_t black) {
+void draw_chess_board (Surface *surface, int16_t x, int16_t y, int16_t w, int16_t h, uint16_t white, uint16_t black) {
     Rect dstRect = { x, y, w / 8, h / 8 };
     Rect srcRect = { 0, 0, 4, 4 };
     Surface *whiteFill = surface_create(4, 4);
@@ -139,8 +137,8 @@ void draw_chess_board (Surface *surface, int x, int y, int w, int h, uint16_t wh
     surface_fill(whiteFill, white);
     surface_fill(blackFill, black);
     Surface *current = whiteFill;
-    for (int y = 0 ; y < 8; y++) {
-        for (int x = 0; x < 8; x++) {
+    for (int yy = 0 ; yy < 8; yy++) {
+        for (int xx = 0; xx < 8; xx++) {
             surface_scaleblit(surface, current, &dstRect, &srcRect);
             dstRect.x += dstRect.w;
             current = current == whiteFill ? blackFill : whiteFill;
@@ -154,7 +152,7 @@ void draw_chess_board (Surface *surface, int x, int y, int w, int h, uint16_t wh
 }
 
 
-void input (State *state, float delta) {
+void input (State *state, uint64_t delta) {
     SDL_Event ev;
     while(SDL_PollEvent(&ev)) {
         switch (ev.type) {
@@ -188,7 +186,7 @@ void input (State *state, float delta) {
 }
 
 
-void update (State *state, float delta) {
+void update (State *state, uint64_t delta) {
     bool didMove = false;
     while (!didMove) {
         int c = 0, p_idx;
@@ -208,7 +206,7 @@ void update (State *state, float delta) {
         int board_idx = rand() % 64;
         int sx = p->column, 
             sy = p->row, 
-            dx = floor((float)board_idx / 8.0f),
+            dx = (int)floorf((float)board_idx / 8.0f),
             dy = board_idx % 8;
         ChessTurnResult *result = chess_turn(state->game, sx, sy, dx, dy);
         if (result != NULL && result->code >= CH_MOVE_SUCCESS) {
@@ -233,20 +231,13 @@ void update (State *state, float delta) {
 
             didMove = true;
             
-        // } else {
-        //     surface_line(
-        //         state->original,
-        //         sx * 12 + 6, sy * 12 + 6, 
-        //         dx * 12 + 6, dy * 12 + 6,  
-        //         RED
-        //     );
         }
         if (didMove) free(result);
     }
 }
 
 
-void render (State *state, float delta) {
+void render (State *state, uint64_t delta) {
     surface_fill(state->original, 0x0000);
     draw_chess_board(
         state->original, 
@@ -258,7 +249,7 @@ void render (State *state, float delta) {
 
     for (int i = 0; i < 64; i++) {
         int tx = i % 8;
-        int ty = floor((float)i / 8);
+        int ty = (int)floorf((float)i / 8);
         if (state->game->board[i] != NULL) {
             char pieceStr[] = { chess_piece_chars[state->game->board[i]->type], 0 };
             font_print(
@@ -290,9 +281,9 @@ void render (State *state, float delta) {
         GREEN
     );
 
-    int mx = floor((float)state->mouse_x / 6.0f);
-    int my = floor((float)state->mouse_y / 6.0f);
-    surface_circle(state->original, mx, my, 1, GREEN);
+    int mx = (int)floorf((float)state->mouse_x / 6.0f);
+    int my = (int)floorf((float)state->mouse_y / 6.0f);
+    surface_circle(state->original, mx, my, 1 + state->frame % 4, GREEN);
     // surface_line(
     //     state->original,
     //     (int)floor((float)state->mouse_x / 6.0f), (int)floor((float)state->mouse_y / 6.0f), 
@@ -308,9 +299,9 @@ void render (State *state, float delta) {
 
 
 int main (int argc, char **argv) {
-    state = (State *)malloc(sizeof(State));
-    init(state, "Chesser", 12 * 8 + 80, 12 * 8 + 10, 6);
-    state->board_x = 40;
+    State *state = (State *)malloc(sizeof(State));
+    init(state, "Chesser", 12 * 8 * 2, 12 * 8 + 8, 6);
+    state->board_x = 4 * 12;//(int)((float)state->screen->w / 4.0f);
     state->board_y = 0;
     state->game = chess_newgame();
 
