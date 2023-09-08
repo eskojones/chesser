@@ -3,6 +3,9 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include "list.h"
+
+
 
 #define clamp(v,min,max) (v < min ? min : (v > max ? max : v))
 
@@ -32,27 +35,44 @@ extern const char chess_board_rows[8];      //12345678
 #define CH_MOVE_TAKE         201
 #define CH_MOVE_PROMOTE      202
 
+struct ChessPlayer;
 
 typedef struct {
     int type, colour, column, row, moves, counter, status;
 } ChessPiece;
 
 typedef struct {
+    struct ChessPlayer *players[2];
     ChessPiece pieces[32];
     ChessPiece *board[8 * 8];
     int moves;
+    LLNode *log;
 } ChessGame;
 
 typedef struct {
     int code;
+    ChessPiece *piece;
     int piece_colour, piece_type, piece_column, piece_row;
     int target_colour, target_type, target_column, target_row;
     bool took, first;
 } ChessTurnResult;
 
+typedef struct {
+    ChessPiece *piece;
+    int action;
+    int column, row;
+} ChessMove;
+
+
+struct ChessPlayer {
+    int colour;
+    ChessPiece *pieces[16];
+    ChessMove *(*turn)(ChessGame *game, struct ChessPlayer *player);
+};
 
 ChessGame *chess_newgame();
 void chess_free(ChessGame *game);
 ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy);
+bool chess_do_turn (ChessGame *game);
 
 #endif

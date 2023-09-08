@@ -62,11 +62,20 @@ ChessGame *chess_newgame () {
         int y = game->pieces[i].row;
         game->board[y * 8 + x] = &game->pieces[i];
     }
+
     return game;
 }
 
 
+void chess_log_free (void *data, void *index, void *meta) {
+    free((ChessTurnResult *)data);
+}
+
 void chess_free (ChessGame *game) {
+    free(game->players[0]);
+    free(game->players[1]);
+    ll_foreach(game->log, chess_log_free, NULL);
+    ll_free(game->log);
     free(game);
 }
 
@@ -288,7 +297,23 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     result->first = p->moves == 0;
     chess_do_move(game, p, dx, dy);
     game->moves++;
+    result->piece = p;
 
     return result;
 }
 
+bool chess_do_turn (ChessGame *game) {
+    int idx = WHITE;
+    if (chess_test_turn(game) == BLACK) idx = BLACK;
+    ChessMove *move = game->players[idx]->turn(game, game->players[idx]);
+    ChessTurnResult *result = chess_turn(game, move->piece->column, move->piece->row, move->column, move->row);
+    if (result != NULL) {
+        if (game->log == NULL) {
+            game->log = ll_create(result);
+        } else {
+            ll_append(game->log, result);
+        }
+    }
+    free(move);
+    return true;
+}

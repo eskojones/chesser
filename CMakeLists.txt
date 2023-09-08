@@ -20,7 +20,9 @@ include_directories(include)
 include_directories(${SDL2_INCLUDE_DIRS})
 
 # Create the executable
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES}
+        player.c
+        player.h)
 
 # Libraries to link
 target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})

@@ -14,6 +14,10 @@
 #include "font.h"
 #include "surface.h"
 #include "chess.h"
+#include "player.h"
+#include "list.h"
+
+
 
 #define BLUE    0x001F
 #define BRED    0xF81F
@@ -128,6 +132,15 @@ void init (State *state, char *title, int width, int height, float scale) {
     SDL_ShowCursor(0);
 }
 
+void game_reset (State *state) {
+    if (state->game != NULL) chess_free(state->game);
+    state->game = chess_newgame();
+    state->game->players[0] = player_create(state->game, WHITE);
+    state->game->players[1] = player_create(state->game, BLACK);
+    state->game->players[0]->turn = player_turn_random;
+    state->game->players[1]->turn = player_turn_random;
+    //LL_MEM();
+}
 
 void draw_chess_board (Surface *surface, int16_t x, int16_t y, int16_t w, int16_t h, uint16_t white, uint16_t black) {
     Rect dstRect = { x, y, w / 8, h / 8 };
@@ -189,6 +202,40 @@ void input (State *state, uint64_t delta) {
 void update (State *state, uint64_t delta) {
     bool didMove = false;
     while (!didMove) {
+        chess_do_turn(state->game);
+        if (state->game->moves == 0) return;
+        ChessTurnResult *result = (ChessTurnResult *) ll_tail(state->game->log)->data;
+        if (result != NULL && result->code >= CH_MOVE_SUCCESS) {
+            if (result->code == CH_MOVE_TAKE) {
+                snprintf(state->status_line, 25, "%d: %c -> %c (%c%c)",
+                         state->game->moves,
+                         chess_piece_chars[result->piece_type],
+                         chess_piece_chars[result->target_type],
+                         chess_board_columns[result->target_column],
+                         chess_board_rows[result->target_row]
+                );
+                if (result->target_type == KING) {
+                    //game over
+                    game_reset(state);
+                }
+            } else if (result->code == CH_MOVE_PROMOTE) {
+                //pawn promotion
+                result->piece->type = QUEEN;
+            }
+            state->sx = result->piece_column;
+            state->sy = result->piece_row;
+            state->dx = result->target_column;
+            state->dy = result->target_row;
+            didMove = true;
+        }
+    }
+
+
+
+    return ;
+/*
+    bool didMove = false;
+    while (!didMove) {
         int c = 0, p_idx;
         ChessPiece *p = NULL;
         while (p == NULL && c < 32) {
@@ -236,7 +283,7 @@ void update (State *state, uint64_t delta) {
             
         }
         if (didMove) free(result);
-    }
+    }*/
 }
 
 
@@ -306,7 +353,7 @@ int main (int argc, char **argv) {
     init(state, "Chesser", 12 * 8 * 2, 12 * 8 + 8, 6);
     state->board_x = 4 * 12;//(int)((float)state->screen->w / 4.0f);
     state->board_y = 0;
-    state->game = chess_newgame();
+    game_reset(state);
 
     struct timeval tv;
     time_t lastTime = gettimeofday(&tv, NULL);
@@ -318,17 +365,17 @@ int main (int argc, char **argv) {
         gettimeofday(&tv, NULL);
         input(state, 0);
 
-        if (tv.tv_usec - lastUpdate >= 10 * 1000) {
-            if ((state->mousebuttondown && state->mousebuttonleft) || state->keydown) {
+        if (tv.tv_usec - lastUpdate >= 1 * 1000) {
+            //if ((state->mousebuttondown && state->mousebuttonleft) || state->keydown) {
                 update(state, tv.tv_usec - lastUpdate);
                 state->keydown = false;
                 state->mousebuttondown = false;
-            }
+            //}
             render(state, tv.tv_usec - lastUpdate);
             lastUpdate = tv.tv_usec;
         }
 
-        SDL_Delay(1);
+        //SDL_Delay(1);
     }
 
     chess_free(state->game);
