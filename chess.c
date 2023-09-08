@@ -65,9 +65,11 @@ ChessGame *chess_newgame () {
     return game;
 }
 
+
 void chess_free (ChessGame *game) {
     free(game);
 }
+
 
 int chess_test_position (
     ChessGame *game, 
@@ -154,14 +156,59 @@ int chess_test_position (
         else if (target_friend) return CH_MOVE_BLOCKED;
     }
 
+    //piece could move to (col,row)
     return CH_MOVE_SUCCESS;
 }
 
-float clamp (float v, float min, float max) {
-    return v < min ? min : (v > max ? max : v);
+
+void chess_do_move (ChessGame *game, ChessPiece *p, int column, int row) {
+    int idx = p->row * 8 + p->column;
+    game->board[idx] = NULL;
+    p->column = column;
+    p->row = row;
+    idx = p->row * 8 + p->column;
+    game->board[idx] = p;
+    p->moves++;
 }
 
 
+bool chess_do_take (ChessGame *game, ChessPiece *p, int column, int row) {
+    int idx = row * 8 + column;
+    ChessPiece *target = game->board[idx];
+    if (target == NULL) return false;
+    target->status = TAKEN;
+    target->column = -1;
+    target->row = -1;
+    return true;
+}
+
+
+bool chess_test_pawn_promote (ChessTurnResult *result) {
+    return result->piece_type == PAWN
+        && (result->code == CH_MOVE_SUCCESS || result->code == CH_MOVE_TAKE)
+        && (result->target_row == 0 || result->target_row == 7);
+}
+
+
+ChessTurnResult *chess_result_create (ChessPiece *p, int column, int row) {
+    ChessTurnResult *result = (ChessTurnResult *)malloc(sizeof(ChessTurnResult));
+    memset(result, 0, sizeof(ChessTurnResult));
+    result->piece_colour = p->colour;
+    result->piece_type = p->type;
+    result->piece_column = p->column;
+    result->piece_row = p->row;
+    result->target_column = column;
+    result->target_row = row;
+    return result;
+}
+
+int chess_test_turn (ChessGame *game) {
+    return game->moves % 2 == 1 ? WHITE : BLACK;
+}
+
+//float clamp (float v, float min, float max) {
+//    return v < min ? min : (v > max ? max : v);
+//}
 
 ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     //destination tile is out of bounds
@@ -176,19 +223,11 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
     if (p->status == TAKEN) return NULL;
 
     //not this colour's turn
-    if ((p->colour == WHITE && game->moves % 2 == 1)
-     || (p->colour == BLACK && game->moves % 2 == 0)) {
+    if (chess_test_turn(game) != p->colour) {
         return NULL;
     }
 
-    ChessTurnResult *result = (ChessTurnResult *)malloc(sizeof(ChessTurnResult));
-    memset(result, 0, sizeof(ChessTurnResult));
-    result->piece_colour = p->colour;
-    result->piece_type = p->type;
-    result->piece_column = p->column;
-    result->piece_row = p->row;
-    result->target_column = dx;
-    result->target_row = dy;
+    ChessTurnResult *result = chess_result_create(p, dx, dy);
 
     if (p->type == KNIGHT) {
         result->code = chess_test_position(
@@ -203,8 +242,6 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
         }
 
     } else {
-        int xDiff = abs(dx - p->column);
-        int yDiff = abs(dy - p->row);
         int xDir = (int)clamp((float)dx - (float)p->column, -1, 1);
         int yDir = (int)clamp((float)dy - (float)p->row, -1, 1);
         int start_column = p->column;
@@ -244,19 +281,14 @@ ChessTurnResult *chess_turn (ChessGame *game, int sx, int sy, int dx, int dy) {
         result->target_type = game->board[didx]->type;
         result->target_colour = game->board[didx]->colour;
         result->took = true;
-        game->board[didx]->status = TAKEN;
-        game->board[didx]->column = -1;
-        game->board[didx]->row = -1;
+        chess_do_take(game, p, dx, dy);
     }
 
-    //move the piece
+    if (chess_test_pawn_promote(result)) result->code = CH_MOVE_PROMOTE;
     result->first = p->moves == 0;
-    p->column = dx;
-    p->row = dy;
-    game->board[sidx] = NULL;
-    game->board[didx] = p;
+    chess_do_move(game, p, dx, dy);
     game->moves++;
-    p->moves++;
 
     return result;
 }
+

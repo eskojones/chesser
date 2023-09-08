@@ -223,6 +223,9 @@ void update (State *state, uint64_t delta) {
                     chess_free(state->game);
                     state->game = chess_newgame();
                 }
+            } else if (result->code == CH_MOVE_PROMOTE) {
+                //pawn promotion
+                p->type = QUEEN;
             }
             state->sx = sx;
             state->sy = sy;
@@ -283,7 +286,7 @@ void render (State *state, uint64_t delta) {
 
     int mx = (int)floorf((float)state->mouse_x / 6.0f);
     int my = (int)floorf((float)state->mouse_y / 6.0f);
-    surface_circle(state->original, mx, my, 1 + state->frame % 4, GREEN);
+    surface_circle(state->original, mx, my, 1, GREEN);
     // surface_line(
     //     state->original,
     //     (int)floor((float)state->mouse_x / 6.0f), (int)floor((float)state->mouse_y / 6.0f), 

@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define clamp(v,min,max) (v < min ? min : (v > max ? max : v))
+
 #define WHITE 0
 #define BLACK 1
 
@@ -24,10 +26,11 @@ extern const char chess_board_columns[8];   //abcdefgh
 extern const char chess_board_rows[8];      //12345678
 
 
-#define CH_MOVE_INVALID       (-1)
+#define CH_MOVE_INVALID      (-1)
 #define CH_MOVE_BLOCKED        0
 #define CH_MOVE_SUCCESS      200
 #define CH_MOVE_TAKE         201
+#define CH_MOVE_PROMOTE      202
 
 
 typedef struct {
